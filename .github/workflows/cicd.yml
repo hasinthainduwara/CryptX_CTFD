@@ -1,0 +1,138 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  release:
+    types: [published]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r linting.txt
+          sudo yarn --cwd CTFd/themes/admin install --non-interactive
+          sudo yarn global add prettier@3.2.5
+      - name: Lint
+        run: make lint
+      - name: Lint Dockerfile
+        uses: brpaz/hadolint-action@master
+        with:
+          dockerfile: "Dockerfile"
+      - name: Lint docker-compose
+        run: docker compose -f docker-compose.yml config
+      - name: Lint translations
+        run: make translations-lint
+
+  test:
+    needs: lint
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: ctfd
+        ports:
+          - 3306:3306
+      redis:
+        image: redis
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r development.txt
+          sudo yarn install --non-interactive
+      - name: Test
+        run: make test
+        env:
+          TESTING_DATABASE_URL: mysql+pymysql://root:password@localhost:3306/ctfd
+      - name: Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  build:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Set repo name lowercase
+        id: repo
+        uses: ASzc/change-string-case-action@v2
+        with:
+          string: ${{ github.repository }}
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Login to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ steps.repo.outputs.lowercase }}:latest
+            ghcr.io/${{ steps.repo.outputs.lowercase }}:${{ github.sha }}
+
+  deploy:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set repo name lowercase
+        id: repo
+        uses: ASzc/change-string-case-action@v2
+        with:
+          string: ${{ github.repository }}
+      - name: Checkout repo
+        uses: actions/checkout@v3
+      - name: Copy configuration
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "docker-compose.prod.yml,conf/*"
+          target: "~/ctfd-deploy"
+      - name: Deploy to Server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            export GHCR_IMAGE=ghcr.io/${{ steps.repo.outputs.lowercase }}
+            cd ~/ctfd-deploy || exit
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d
