@@ -134,5 +134,9 @@ jobs:
           script: |
             export GHCR_IMAGE=ghcr.io/${{ steps.repo.outputs.lowercase }}
             cd ~/ctfd-deploy || exit
+            # Stop existing to free up ports, and pull new image
+            docker compose -f docker-compose.prod.yml stop
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d
+            # Optional: Clean up old images to save space
+            docker image prune -f
