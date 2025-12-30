@@ -23,6 +23,7 @@ services:
     networks:
         default:
         internal:
+    entrypoint: ["/bin/bash", "/opt/CTFd/docker-entrypoint.sh"]
 
   nginx:
     image: nginx:stable
