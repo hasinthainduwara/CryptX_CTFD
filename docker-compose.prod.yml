@@ -55,6 +55,17 @@ services:
     networks:
         internal:
 
+  sql-challenge:
+    build:
+      context: ./challenges/sql-login
+    ports:
+      - "5001:5000"
+    restart: always
+    environment:
+      - FLAG=CTF{sql_injection_is_too_easy}
+    networks:
+        default:
+
 networks:
     default:
     internal:
