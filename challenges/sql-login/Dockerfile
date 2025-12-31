@@ -8,7 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create a non-root user
-phases
+
 RUN useradd -m ctf
 USER ctf
 
