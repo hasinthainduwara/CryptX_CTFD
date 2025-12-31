@@ -7,7 +7,7 @@ FLAG = os.environ.get("FLAG", "CTF{default_flag_if_env_missing}")
 
 
 def init_db():
-    conn = sqlite3.connect(":memory:")
+    conn = sqlite3.connect(":memory:", check_same_thread=False)
     c = conn.cursor()
     c.execute(
         "CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, password TEXT)"
