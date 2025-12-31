@@ -125,7 +125,7 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          source: "docker-compose.prod.yml,conf/*,challenges/*"
+          source: "docker-compose.prod.yml,conf,challenges"
           target: "~/ctfd-deploy"
       - name: Deploy to Server
         uses: appleboy/ssh-action@master
