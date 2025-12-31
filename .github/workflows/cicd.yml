@@ -134,9 +134,18 @@ jobs:
           script: |
             export GHCR_IMAGE=ghcr.io/${{ steps.repo.outputs.lowercase }}
             cd ~/ctfd-deploy || exit
-            # Stop existing to free up ports, and pull new image
+            
+            # 1. Clean up any accidental containers created with default project name (ctfd-deploy)
+            # This fixes the "duplicate containers" issue
+            docker compose -f docker-compose.prod.yml down --remove-orphans || true
+
+            # 2. Enforce the correct project name to match the original stack (cryptx_ctfd)
+            export COMPOSE_PROJECT_NAME=cryptx_ctfd
+            
+            # 3. Deploy/Update the correct stack
             docker compose -f docker-compose.prod.yml stop
             docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            
             # Optional: Clean up old images to save space
             docker image prune -f
