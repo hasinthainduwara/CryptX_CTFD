@@ -8,24 +8,25 @@ FLAG = os.environ.get("FLAG", "CTF{default_flag_if_env_missing}")
 
 def get_db():
     """Get a database connection for the current request"""
-    conn = sqlite3.connect("challenge.db", check_same_thread=False)
+    conn = sqlite3.connect("challenge.db")
+    conn.row_factory = sqlite3.Row
     return conn
 
 
 def init_db():
     """Initialize the database with sample data"""
-    conn = sqlite3.connect("challenge.db", check_same_thread=False)
-    c = conn.cursor()
-    c.execute("DROP TABLE IF EXISTS users")
-    c.execute(
-        "CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, password TEXT)"
-    )
-    c.execute(
-        "INSERT INTO users (username, password) VALUES ('admin', 'super_secret_password_123')"
-    )
-    c.execute("INSERT INTO users (username, password) VALUES ('guest', 'guest')")
-    conn.commit()
-    conn.close()
+    if not os.path.exists("challenge.db"):
+        conn = sqlite3.connect("challenge.db")
+        c = conn.cursor()
+        c.execute(
+            "CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, password TEXT)"
+        )
+        c.execute(
+            "INSERT INTO users (username, password) VALUES ('admin', 'super_secret_password_123')"
+        )
+        c.execute("INSERT INTO users (username, password) VALUES ('guest', 'guest')")
+        conn.commit()
+        conn.close()
 
 
 # Initialize DB on startup
@@ -60,4 +61,4 @@ def login():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000, threaded=True)
