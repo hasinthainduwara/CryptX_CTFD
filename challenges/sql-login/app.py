@@ -4,7 +4,7 @@ import os
 
 app = Flask(__name__)
 FLAG = os.environ.get("FLAG", "CTF{default_flag_if_env_missing}")
-DATABASE = "/tmp/challenge.db"
+DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "challenge.db")
 
 
 def get_db():
