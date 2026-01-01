@@ -6,9 +6,17 @@ app = Flask(__name__)
 FLAG = os.environ.get("FLAG", "CTF{default_flag_if_env_missing}")
 
 
+def get_db():
+    """Get a database connection for the current request"""
+    conn = sqlite3.connect("challenge.db", check_same_thread=False)
+    return conn
+
+
 def init_db():
-    conn = sqlite3.connect(":memory:", check_same_thread=False)
+    """Initialize the database with sample data"""
+    conn = sqlite3.connect("challenge.db", check_same_thread=False)
     c = conn.cursor()
+    c.execute("DROP TABLE IF EXISTS users")
     c.execute(
         "CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, password TEXT)"
     )
@@ -17,11 +25,11 @@ def init_db():
     )
     c.execute("INSERT INTO users (username, password) VALUES ('guest', 'guest')")
     conn.commit()
-    return conn
+    conn.close()
 
 
-# Initialize DB in memory
-db_conn = init_db()
+# Initialize DB on startup
+init_db()
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -35,9 +43,11 @@ def login():
         query = f"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'"
 
         try:
-            c = db_conn.cursor()
+            conn = get_db()
+            c = conn.cursor()
             c.execute(query)
             user = c.fetchone()
+            conn.close()
 
             if user:
                 return f"<h1>Success! Welcome, {user[1]}.</h1><p>Here is your flag: <b>{FLAG}</b></p>"
