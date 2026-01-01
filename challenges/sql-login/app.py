@@ -4,12 +4,12 @@ import os
 
 app = Flask(__name__)
 FLAG = os.environ.get("FLAG", "CTF{default_flag_if_env_missing}")
-DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "challenge.db")
+DATABASE = "/tmp/challenge.db"
 
 
 def get_db():
     """Get a database connection for the current request"""
-    db = getattr(g, '_database', None)
+    db = getattr(g, "_database", None)
     if db is None:
         db = g._database = sqlite3.connect(DATABASE)
     return db
@@ -18,7 +18,7 @@ def get_db():
 @app.teardown_appcontext
 def close_connection(exception):
     """Close the database connection at the end of each request"""
-    db = getattr(g, '_database', None)
+    db = getattr(g, "_database", None)
     if db is not None:
         db.close()
 
